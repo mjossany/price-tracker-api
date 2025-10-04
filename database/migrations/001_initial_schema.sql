@@ -1,10 +1,11 @@
--- Price Tracker Database Schema
--- PostgresSQL 17
--- Created: October 4, 2025
+-- Migration: 001_initial_schema.sql
+-- Description: Initial database schema setup
+-- Created: 2025-10-04
+-- Author: Development Team
 
--- =============================
+-- ============================================
 -- TABLES
--- =============================
+-- ============================================
 
 -- Users table
 CREATE TABLE users (
@@ -19,16 +20,16 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Products table
+-- Products table (generic product info)
 CREATE TABLE products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name TEXT NULL,
+    name TEXT NOT NULL, -- User-defined product name (e.g., "iPhone 15 Pro 256GB")
     description TEXT,
     image_url TEXT,
-    target_price DECIMAL(12,2),
-    currency VARCHAR(3) DEFAULT 'BRL',
-    notification_enabled BOOLEAN DEFAULT true,
+    target_price DECIMAL(12,2), -- Desired alert price across all stores
+    currency VARCHAR(3) DEFAULT 'USD',
+    notification_enabled BOOLEAN DEFAULT true, -- Enable/disable alerts for this product
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -38,14 +39,14 @@ CREATE TABLE products (
 CREATE TABLE product_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    url TEXT NOT NULL UNIQUE,
-    store VARCHAR(100) NOT NULL,
-    product_identifier VARCHAR(255),
-    last_price DECIMAL(12,2),
-    lowest_price_seen DECIMAL(12,2),
-    highest_price_seen DECIMAL(12,2),
-    last_checked_at TIMESTAMP,
-    scrape_error_count INTEGER DEFAULT 0,
+    url TEXT NOT NULL UNIQUE, -- The actual e-commerce URL
+    store VARCHAR(100) NOT NULL, -- 'amazon', 'ebay', 'walmart', etc.
+    product_identifier VARCHAR(255), -- Store-specific SKU/ASIN
+    last_price DECIMAL(12,2), -- Most recent price (denormalized for dashboard)
+    lowest_price_seen DECIMAL(12,2), -- Historical minimum for this specific link
+    highest_price_seen DECIMAL(12,2), -- Historical maximum for this specific link
+    last_checked_at TIMESTAMP, -- Last scrape attempt
+    scrape_error_count INTEGER DEFAULT 0, -- Track consecutive failures
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -56,18 +57,18 @@ CREATE TABLE price_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_link_id UUID NOT NULL REFERENCES product_links(id) ON DELETE CASCADE,
     price DECIMAL(12,2) NOT NULL,
-    original_price DECIMAL(12,2),
-    discount_percentage DECIMAL(5,2),
-    currency VARCHAR(3) DEFAULT 'BRL',
+    original_price DECIMAL(12,2), -- List/MSRP price if available
+    discount_percentage DECIMAL(5,2), -- Calculated discount (0-100)
+    currency VARCHAR(3) DEFAULT 'USD',
     was_available BOOLEAN DEFAULT true,
-    scrape_source VARCHAR(50),
-    response_time_ms INTEGER,
+    scrape_source VARCHAR(50), -- 'beautifulsoup', 'api', 'playwright', etc.
+    response_time_ms INTEGER, -- Scraper performance monitoring
     checked_at TIMESTAMP DEFAULT NOW()
 );
 
--- =============================
+-- ============================================
 -- INDEXES FOR PERFORMANCE
--- =============================
+-- ============================================
 
 CREATE INDEX idx_products_user_id ON products(user_id);
 CREATE INDEX idx_products_active ON products(is_active) WHERE is_active = true;
